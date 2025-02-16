@@ -1,0 +1,5 @@
+BEGIN POLES
+% lab      x     y     z    Phi
+   P1     -1.0   0.0   0.0   1.0
+   N1     1.0   0.0   0.0  1.0 
+END POLES
