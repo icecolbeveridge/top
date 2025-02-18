@@ -1,6 +1,9 @@
 package contour
 
-import "top/top"
+import (
+	"math"
+	"top/top"
+)
 
 // Autogrid gives the potential on a 21x21 grid picked in a
 // fairly arbitrary way. TODO: make it customisable
@@ -41,6 +44,56 @@ func Autogrid(t *top.Topology) [][]float64 {
 			out[i][j] = t.Potential(p)
 		}
 	}
+	return out
+}
 
+type GridPoint struct {
+	X, Y      float64
+	Potential float64
+}
+
+type Curve struct {
+	Points []GridPoint
+	Closed bool
+}
+
+type BrokenEdge struct {
+	First    GridPoint
+	Second   GridPoint
+	EstBreak GridPoint
+}
+
+// Let's think this through. I certainly need to figure out which
+// edges are broken, and then decide which pairs are adjacent.
+//
+// What's the output? Must be a list of curves.
+func Contour(grid [][]float64, level float64) []Curve {
+	NX := len(grid)
+	NY := len(grid[0])
+	out := make([]Curve, 0)
+	bhEdges := make([]BrokenEdge, 0)
+	// bvEdges := make([]BrokenEdge, 0)
+	// bdEdges := make([]BrokenEdge, 0)
+	for x := range NX {
+		for y := range NY {
+			if x < NX-1 { // check horizontal
+				if (grid[x][y]-level)*(grid[x+1][y]-level) < 0. {
+					fx := float64(x)
+					fy := float64(y)
+					// if p1 = -a and p2 = b, then the zero estimate
+					// is (|b|x2 + |a|x1)/(|a| + |b|)
+					p1 := math.Abs(grid[x][y])
+					p2 := math.Abs(grid[x+1][y])
+					ex := (p1*(fx+1) + p2*fx) / (p1 + p2)
+					bEdge := BrokenEdge{
+						First:    GridPoint{X: fx, Y: fy, Potential: grid[x][y]},
+						Second:   GridPoint{X: fx + 1, Y: fy, Potential: grid[x+1][y]},
+						EstBreak: GridPoint{X: ex, Y: fy},
+					}
+					bhEdges = append(bhEdges, bEdge)
+				}
+			}
+		}
+	}
 	return out
 }
