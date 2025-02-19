@@ -47,16 +47,21 @@ func Autogrid(t *top.Topology) [][]float64 {
 	return out
 }
 
+// A GridPoint is a point in grid coordinates -- TODO: a conversion between
+// grid coords and "real" coords
 type GridPoint struct {
 	X, Y      float64
 	Potential float64
 }
 
+// A Curve is a list of GridPoints that can be closed or not.
 type Curve struct {
 	Points []GridPoint
 	Closed bool
 }
 
+// A BrokenEdge is a pair of gridpoints on either side of a contour line
+// and an estimate of where the contour ought to be.
 type BrokenEdge struct {
 	First    GridPoint
 	Second   GridPoint
