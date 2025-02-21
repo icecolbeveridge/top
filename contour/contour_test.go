@@ -1,15 +1,15 @@
 package contour_test
 
 import (
-	"testing"
 	"os"
-	top_io "top/io"
+	"testing"
 	"top/contour"
+	top_io "top/io"
+
 	"github.com/stretchr/testify/assert"
 )
 
 const ROOT = "/home/colin/go/top" // TODO: global util
-
 
 func TestContour(t *testing.T) {
 	assert := assert.New(t)
@@ -18,6 +18,7 @@ func TestContour(t *testing.T) {
 
 	T := top_io.ReadPNS(f)
 	t.Log(T)
-
-	t.Log(contour.Autogrid(T))
+	grid := contour.Autogrid(T)
+	x := contour.Contour(grid, 0)
+	assert.NotEmpty(x)
 }

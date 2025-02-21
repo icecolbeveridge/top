@@ -1,6 +1,7 @@
 package contour
 
 import (
+	"fmt"
 	"math"
 	"top/top"
 )
@@ -68,6 +69,27 @@ type BrokenEdge struct {
 	EstBreak GridPoint
 }
 
+type ErrUnbrokenEdge struct{}
+
+func (e ErrUnbrokenEdge) Error() string {
+	return "Error: unbroken edge"
+}
+
+// BreakEdge determines whether the ends of an edge are on different
+// sides of a contour, and returns an estimate of the crossing point
+// (or an error)
+func BreakEdge(p1, p2, level float64) (float64, error) {
+	if p1 > level && p2 > level {
+		return 0, ErrUnbrokenEdge{}
+	}
+	if p1 < level && p2 < level {
+		return 0, ErrUnbrokenEdge{}
+	}
+	L1 := math.Abs(p1 - level)
+	L2 := math.Abs(p2 - level)
+	return L1 / (L1 + L2), nil
+}
+
 // Let's think this through. I certainly need to figure out which
 // edges are broken, and then decide which pairs are adjacent.
 //
@@ -77,28 +99,51 @@ func Contour(grid [][]float64, level float64) []Curve {
 	NY := len(grid[0])
 	out := make([]Curve, 0)
 	bhEdges := make([]BrokenEdge, 0)
-	// bvEdges := make([]BrokenEdge, 0)
-	// bdEdges := make([]BrokenEdge, 0)
+	bvEdges := make([]BrokenEdge, 0)
+	bdEdges := make([]BrokenEdge, 0)
+	var l float64
+	var err error
 	for x := range NX {
 		for y := range NY {
 			if x < NX-1 { // check horizontal
-				if (grid[x][y]-level)*(grid[x+1][y]-level) < 0. {
+				if l, err = BreakEdge(grid[x][y], grid[x+1][y], level); err == nil {
 					fx := float64(x)
 					fy := float64(y)
-					// if p1 = -a and p2 = b, then the zero estimate
-					// is (|b|x2 + |a|x1)/(|a| + |b|)
-					p1 := math.Abs(grid[x][y])
-					p2 := math.Abs(grid[x+1][y])
-					ex := (p1*(fx+1) + p2*fx) / (p1 + p2)
 					bEdge := BrokenEdge{
 						First:    GridPoint{X: fx, Y: fy, Potential: grid[x][y]},
 						Second:   GridPoint{X: fx + 1, Y: fy, Potential: grid[x+1][y]},
-						EstBreak: GridPoint{X: ex, Y: fy},
+						EstBreak: GridPoint{X: fx + l, Y: fy},
 					}
 					bhEdges = append(bhEdges, bEdge)
 				}
 			}
+			if x < NX-1 && y < NY-1 { // check diagonal
+				if l, err = BreakEdge(grid[x][y], grid[x+1][y+1], level); err == nil {
+					fx := float64(x)
+					fy := float64(y)
+					bEdge := BrokenEdge{
+						First:    GridPoint{X: fx, Y: fy, Potential: grid[x][y]},
+						Second:   GridPoint{X: fx + 1, Y: fy + 1, Potential: grid[x+1][y+1]},
+						EstBreak: GridPoint{X: fx + l, Y: fy + l},
+					}
+					bdEdges = append(bdEdges, bEdge)
+				}
+			}
+			if y < NY-1 { // check vertical
+				if l, err = BreakEdge(grid[x][y], grid[x][y+1], level); err == nil {
+					fx := float64(x)
+					fy := float64(y)
+					bEdge := BrokenEdge{
+						First:    GridPoint{X: fx, Y: fy, Potential: grid[x][y]},
+						Second:   GridPoint{X: fx, Y: fy + 1, Potential: grid[x][y+1]},
+						EstBreak: GridPoint{X: fx, Y: fy + l},
+					}
+					bvEdges = append(bvEdges, bEdge)
+				}
+
+			}
 		}
 	}
+	fmt.Printf("%v\n%v\n%v", bvEdges, bhEdges, bdEdges)
 	return out
 }
