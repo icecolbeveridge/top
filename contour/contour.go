@@ -57,8 +57,66 @@ type GridPoint struct {
 
 // A Curve is a list of GridPoints that can be closed or not.
 type Curve struct {
-	Points []GridPoint
-	Closed bool
+	Edges []BrokenEdge
+	Start MIDPOINT
+	End   MIDPOINT
+}
+
+func (c Curve) Reverse() Curve {
+	e := make([]BrokenEdge, len(c.Edges))
+	for i := range len(c.Edges) {
+		e[len(c.Edges)-i] = c.Edges[i]
+	}
+	return Curve{
+		Edges: e,
+		Start: c.End,
+		End:   c.Start,
+	}
+}
+func Adjacent(m1, m2 MIDPOINT) bool {
+	dx := (m1[0] - m2[0])
+	dy := (m1[1] - m2[1])
+	switch {
+	case dx == 0 && dy*dy == 1:
+		return true
+	case dy == 0 && dx*dx == 1:
+		return true
+	case dx*dy == 1:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c1 Curve) Adjacent(c2 Curve) (bool, int) {
+	switch {
+	case Adjacent(c1.Start, c2.Start):
+		return true, 0
+	case Adjacent(c1.Start, c2.End):
+		return true, 1
+	case Adjacent(c1.End, c2.Start):
+		return true, 2
+	case Adjacent(c1.End, c2.End):
+		return true, 3
+	default:
+		return false, -1
+	}
+}
+
+func Join(c1, c2 Curve, adj int) Curve {
+	C1 := c1
+	C2 := c2
+	if adj <= 1 {
+		C1 = c1.Reverse()
+	}
+	if adj%2 == 1 {
+		C2 = c2.Reverse()
+	}
+	return Curve{
+		Edges: append(C1.Edges, C2.Edges...),
+		Start: C1.Start,
+		End:   C2.Start,
+	}
 }
 
 // A BrokenEdge is a pair of gridpoints on either side of a contour line
@@ -90,6 +148,9 @@ func BreakEdge(p1, p2, level float64) (float64, error) {
 	return L1 / (L1 + L2), nil
 }
 
+// The midpoint of an edge involves a bit of doubling. TODO: doc properly
+type MIDPOINT = [2]int
+
 // Let's think this through. I certainly need to figure out which
 // edges are broken, and then decide which pairs are adjacent.
 //
@@ -98,9 +159,7 @@ func Contour(grid [][]float64, level float64) []Curve {
 	NX := len(grid)
 	NY := len(grid[0])
 	out := make([]Curve, 0)
-	bhEdges := make([]BrokenEdge, 0)
-	bvEdges := make([]BrokenEdge, 0)
-	bdEdges := make([]BrokenEdge, 0)
+	brokenEdges := make(map[MIDPOINT]BrokenEdge)
 	var l float64
 	var err error
 	for x := range NX {
@@ -114,7 +173,8 @@ func Contour(grid [][]float64, level float64) []Curve {
 						Second:   GridPoint{X: fx + 1, Y: fy, Potential: grid[x+1][y]},
 						EstBreak: GridPoint{X: fx + l, Y: fy},
 					}
-					bhEdges = append(bhEdges, bEdge)
+					a := [...]int{2*x + 1, 2 * y}
+					brokenEdges[a] = bEdge
 				}
 			}
 			if x < NX-1 && y < NY-1 { // check diagonal
@@ -126,7 +186,8 @@ func Contour(grid [][]float64, level float64) []Curve {
 						Second:   GridPoint{X: fx + 1, Y: fy + 1, Potential: grid[x+1][y+1]},
 						EstBreak: GridPoint{X: fx + l, Y: fy + l},
 					}
-					bdEdges = append(bdEdges, bEdge)
+					a := [...]int{2*x + 1, 2*y + 1}
+					brokenEdges[a] = bEdge
 				}
 			}
 			if y < NY-1 { // check vertical
@@ -138,12 +199,19 @@ func Contour(grid [][]float64, level float64) []Curve {
 						Second:   GridPoint{X: fx, Y: fy + 1, Potential: grid[x][y+1]},
 						EstBreak: GridPoint{X: fx, Y: fy + l},
 					}
-					bvEdges = append(bvEdges, bEdge)
+					a := [...]int{2 * x, 2*y + 1}
+					brokenEdges[a] = bEdge
 				}
-
 			}
 		}
 	}
-	fmt.Printf("%v\n%v\n%v", bvEdges, bhEdges, bdEdges)
+	// at this point, we have a map containing all the broken edges.
+	// How do we join them up into curves? Domino style!
+	// I guess we start with a Curve for each BrokenEdge and go through finding pairs.
+	// Not quite sure of the method
+	for k, v := range brokenEdges {
+		fmt.Printf("%v:\t%v\n", k, v)
+
+	}
 	return out
 }
