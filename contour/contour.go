@@ -158,7 +158,6 @@ type MIDPOINT = [2]int
 func Contour(grid [][]float64, level float64) []Curve {
 	NX := len(grid)
 	NY := len(grid[0])
-	out := make([]Curve, 0)
 	brokenEdges := make(map[MIDPOINT]BrokenEdge)
 	var l float64
 	var err error
@@ -209,9 +208,62 @@ func Contour(grid [][]float64, level float64) []Curve {
 	// How do we join them up into curves? Domino style!
 	// I guess we start with a Curve for each BrokenEdge and go through finding pairs.
 	// Not quite sure of the method
-	for k, v := range brokenEdges {
-		fmt.Printf("%v:\t%v\n", k, v)
 
+	out := CombineBrokenEdges(brokenEdges)
+	for k, v := range out {
+		fmt.Printf("%v:\t%v %v\n", k, v.Start, v.End)
+		for _, j := range v.Edges {
+			fmt.Printf("%v\n", j)
+		}
+	}
+	return out
+}
+
+func CombineBrokenEdges(m map[MIDPOINT]BrokenEdge) []Curve {
+	out := make([]Curve, 0)
+	for {
+		c := Curve{
+			Edges: []BrokenEdge{},
+			Start: [2]int{},
+			End:   [2]int{},
+		}
+		for {
+			tr := make([]MIDPOINT, 0)
+			for mp, be := range m {
+				fmt.Println("Next:", mp, "s/e:", c.Start, c.End)
+				switch {
+				case len(c.Edges) == 0:
+					c.Start = mp
+					c.End = mp
+					c.Edges = []BrokenEdge{be}
+					tr = append(tr, mp)
+				case Adjacent(mp, c.Start):
+					fmt.Println("Adj to start")
+					c.Start = mp
+					c.Edges = append([]BrokenEdge{be}, c.Edges...)
+					tr = append(tr, mp)
+				case Adjacent(mp, c.End):
+					fmt.Println("Adj to end")
+
+					c.End = mp
+					c.Edges = append(c.Edges, be)
+					tr = append(tr, mp)
+				default:
+					fmt.Println("Not adj")
+
+				}
+			}
+			for _, t := range tr {
+				delete(m, t)
+			}
+			if len(tr) == 0 {
+				break
+			}
+		}
+		out = append(out, c)
+		if len(m) == 0 {
+			break
+		}
 	}
 	return out
 }
