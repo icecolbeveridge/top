@@ -1,17 +1,21 @@
 package contour
 
 import (
-	"fmt"
+	"io"
 	"math"
 	"top/top"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 )
 
 // Autogrid gives the potential on a 21x21 grid picked in a
 // fairly arbitrary way. TODO: make it customisable
 func Autogrid(t *top.Topology) [][]float64 {
 	const (
-		NX = 21
-		NY = 21
+		NX = 401
+		NY = 401
 	)
 	x0 := 1.e30
 	y0 := 1.e30
@@ -30,6 +34,14 @@ func Autogrid(t *top.Topology) [][]float64 {
 			y1 = p.Y
 		}
 	}
+	ax := (x1 - x0) * 0.4
+	x0 = x0 - ax
+	x1 = x1 + ax
+
+	ay := (y1 - y0) * 0.4
+	y0 = y0 - ay
+	y1 = y1 + ay
+
 	dx := (x1 - x0) / (NX - 1)
 	dy := (y1 - y0) / (NY - 1)
 
@@ -151,10 +163,14 @@ func BreakEdge(p1, p2, level float64) (float64, error) {
 // The midpoint of an edge involves a bit of doubling. TODO: doc properly
 type MIDPOINT = [2]int
 
-// Let's think this through. I certainly need to figure out which
-// edges are broken, and then decide which pairs are adjacent.
-//
-// What's the output? Must be a list of curves.
+func Contours(grid [][]float64, levels ...float64) []Curve {
+	out := make([]Curve, 0)
+	for _, l := range levels {
+		out = append(out, Contour(grid, l)...)
+	}
+	return out
+}
+
 func Contour(grid [][]float64, level float64) []Curve {
 	NX := len(grid)
 	NY := len(grid[0])
@@ -204,19 +220,7 @@ func Contour(grid [][]float64, level float64) []Curve {
 			}
 		}
 	}
-	// at this point, we have a map containing all the broken edges.
-	// How do we join them up into curves? Domino style!
-	// I guess we start with a Curve for each BrokenEdge and go through finding pairs.
-	// Not quite sure of the method
-
-	out := CombineBrokenEdges(brokenEdges)
-	for k, v := range out {
-		fmt.Printf("%v:\t%v %v\n", k, v.Start, v.End)
-		for _, j := range v.Edges {
-			fmt.Printf("%v\n", j)
-		}
-	}
-	return out
+	return CombineBrokenEdges(brokenEdges)
 }
 
 func CombineBrokenEdges(m map[MIDPOINT]BrokenEdge) []Curve {
@@ -230,7 +234,6 @@ func CombineBrokenEdges(m map[MIDPOINT]BrokenEdge) []Curve {
 		for {
 			tr := make([]MIDPOINT, 0)
 			for mp, be := range m {
-				fmt.Println("Next:", mp, "s/e:", c.Start, c.End)
 				switch {
 				case len(c.Edges) == 0:
 					c.Start = mp
@@ -238,19 +241,14 @@ func CombineBrokenEdges(m map[MIDPOINT]BrokenEdge) []Curve {
 					c.Edges = []BrokenEdge{be}
 					tr = append(tr, mp)
 				case Adjacent(mp, c.Start):
-					fmt.Println("Adj to start")
 					c.Start = mp
 					c.Edges = append([]BrokenEdge{be}, c.Edges...)
 					tr = append(tr, mp)
 				case Adjacent(mp, c.End):
-					fmt.Println("Adj to end")
-
 					c.End = mp
 					c.Edges = append(c.Edges, be)
 					tr = append(tr, mp)
 				default:
-					fmt.Println("Not adj")
-
 				}
 			}
 			for _, t := range tr {
@@ -266,4 +264,30 @@ func CombineBrokenEdges(m map[MIDPOINT]BrokenEdge) []Curve {
 		}
 	}
 	return out
+}
+
+func Plot(curves []Curve, w io.Writer) {
+	p := plot.New()
+	for _, c := range curves {
+		pp := plotter.XYs{}
+		for _, cp := range c.Edges {
+			pp = append(pp, plotter.XY{X: cp.EstBreak.X, Y: cp.EstBreak.Y})
+		}
+		if Adjacent(c.Start, c.End) {
+			pp = append(pp, plotter.XY{X: c.Edges[0].EstBreak.X, Y: c.Edges[0].EstBreak.Y})
+		}
+		line, err := plotter.NewLine(pp)
+		if err != nil {
+			panic(err)
+		}
+		p.Add(line)
+	}
+	wt, err := p.WriterTo(vg.Length(800), vg.Length(600), "png")
+	if err != nil {
+		panic(err)
+	}
+	_, err = wt.WriteTo(w)
+	if err != nil {
+		panic(err)
+	}
 }
