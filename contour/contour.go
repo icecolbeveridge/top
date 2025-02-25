@@ -34,11 +34,11 @@ func Autogrid(t *top.Topology) [][]float64 {
 			y1 = p.Y
 		}
 	}
-	ax := (x1 - x0) * 0.4
+	ax := (x1 - x0) * 0.5
 	x0 = x0 - ax
 	x1 = x1 + ax
 
-	ay := (y1 - y0) * 0.4
+	ay := (y1 - y0) * 0.5
 	y0 = y0 - ay
 	y1 = y1 + ay
 
@@ -74,17 +74,6 @@ type Curve struct {
 	End   MIDPOINT
 }
 
-func (c Curve) Reverse() Curve {
-	e := make([]BrokenEdge, len(c.Edges))
-	for i := range len(c.Edges) {
-		e[len(c.Edges)-i] = c.Edges[i]
-	}
-	return Curve{
-		Edges: e,
-		Start: c.End,
-		End:   c.Start,
-	}
-}
 func Adjacent(m1, m2 MIDPOINT) bool {
 	dx := (m1[0] - m2[0])
 	dy := (m1[1] - m2[1])
@@ -100,37 +89,6 @@ func Adjacent(m1, m2 MIDPOINT) bool {
 	}
 }
 
-func (c1 Curve) Adjacent(c2 Curve) (bool, int) {
-	switch {
-	case Adjacent(c1.Start, c2.Start):
-		return true, 0
-	case Adjacent(c1.Start, c2.End):
-		return true, 1
-	case Adjacent(c1.End, c2.Start):
-		return true, 2
-	case Adjacent(c1.End, c2.End):
-		return true, 3
-	default:
-		return false, -1
-	}
-}
-
-func Join(c1, c2 Curve, adj int) Curve {
-	C1 := c1
-	C2 := c2
-	if adj <= 1 {
-		C1 = c1.Reverse()
-	}
-	if adj%2 == 1 {
-		C2 = c2.Reverse()
-	}
-	return Curve{
-		Edges: append(C1.Edges, C2.Edges...),
-		Start: C1.Start,
-		End:   C2.Start,
-	}
-}
-
 // A BrokenEdge is a pair of gridpoints on either side of a contour line
 // and an estimate of where the contour ought to be.
 type BrokenEdge struct {
@@ -139,30 +97,26 @@ type BrokenEdge struct {
 	EstBreak GridPoint
 }
 
-type ErrUnbrokenEdge struct{}
-
-func (e ErrUnbrokenEdge) Error() string {
-	return "Error: unbroken edge"
-}
-
 // BreakEdge determines whether the ends of an edge are on different
 // sides of a contour, and returns an estimate of the crossing point
-// (or an error)
-func BreakEdge(p1, p2, level float64) (float64, error) {
+// (or (0, false) if it's not broken)
+func BreakEdge(p1, p2, level float64) (float64, bool) {
 	if p1 > level && p2 > level {
-		return 0, ErrUnbrokenEdge{}
+		return 0, false
 	}
 	if p1 < level && p2 < level {
-		return 0, ErrUnbrokenEdge{}
+		return 0, true
 	}
 	L1 := math.Abs(p1 - level)
 	L2 := math.Abs(p2 - level)
-	return L1 / (L1 + L2), nil
+	return L1 / (L1 + L2), true
 }
 
-// The midpoint of an edge involves a bit of doubling. TODO: doc properly
+// MIDPOINT is (2x, 2y) for the midpoint of an edge -- using the
+// doubles keeps everything nice and integer.
 type MIDPOINT = [2]int
 
+// Contours returns the curves for a list of levels
 func Contours(grid [][]float64, levels ...float64) []Curve {
 	out := make([]Curve, 0)
 	for _, l := range levels {
@@ -171,16 +125,17 @@ func Contours(grid [][]float64, levels ...float64) []Curve {
 	return out
 }
 
+// Contour returns contours for a single level
 func Contour(grid [][]float64, level float64) []Curve {
 	NX := len(grid)
 	NY := len(grid[0])
 	brokenEdges := make(map[MIDPOINT]BrokenEdge)
 	var l float64
-	var err error
+	var isBroken bool
 	for x := range NX {
 		for y := range NY {
 			if x < NX-1 { // check horizontal
-				if l, err = BreakEdge(grid[x][y], grid[x+1][y], level); err == nil {
+				if l, isBroken = BreakEdge(grid[x][y], grid[x+1][y], level); isBroken {
 					fx := float64(x)
 					fy := float64(y)
 					bEdge := BrokenEdge{
@@ -193,7 +148,7 @@ func Contour(grid [][]float64, level float64) []Curve {
 				}
 			}
 			if x < NX-1 && y < NY-1 { // check diagonal
-				if l, err = BreakEdge(grid[x][y], grid[x+1][y+1], level); err == nil {
+				if l, isBroken = BreakEdge(grid[x][y], grid[x+1][y+1], level); isBroken {
 					fx := float64(x)
 					fy := float64(y)
 					bEdge := BrokenEdge{
@@ -206,7 +161,7 @@ func Contour(grid [][]float64, level float64) []Curve {
 				}
 			}
 			if y < NY-1 { // check vertical
-				if l, err = BreakEdge(grid[x][y], grid[x][y+1], level); err == nil {
+				if l, isBroken = BreakEdge(grid[x][y], grid[x][y+1], level); isBroken {
 					fx := float64(x)
 					fy := float64(y)
 					bEdge := BrokenEdge{
@@ -223,6 +178,7 @@ func Contour(grid [][]float64, level float64) []Curve {
 	return CombineBrokenEdges(brokenEdges)
 }
 
+// CombineBrokenEdges takes a map of BrokenEdges and combines them together into disjoint Curves.
 func CombineBrokenEdges(m map[MIDPOINT]BrokenEdge) []Curve {
 	out := make([]Curve, 0)
 	for {
@@ -266,6 +222,7 @@ func CombineBrokenEdges(m map[MIDPOINT]BrokenEdge) []Curve {
 	return out
 }
 
+// Plot takes a set of curves and writes the output to a Writer. TODO: make customisable
 func Plot(curves []Curve, w io.Writer) {
 	p := plot.New()
 	for _, c := range curves {
