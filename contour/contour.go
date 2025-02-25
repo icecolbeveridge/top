@@ -105,7 +105,7 @@ func BreakEdge(p1, p2, level float64) (float64, bool) {
 		return 0, false
 	}
 	if p1 < level && p2 < level {
-		return 0, true
+		return 0, false
 	}
 	L1 := math.Abs(p1 - level)
 	L2 := math.Abs(p2 - level)
