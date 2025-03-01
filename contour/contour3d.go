@@ -49,3 +49,17 @@ package contour
 // Each orthog edge abuts four tets --
 //  offset by +/-1 in cube edge directions, and away from "point" of tet
 //
+// I suspect I'm overthinking this. We can proceed a cube at a time.
+//
+// I'm also going to decouple "finding interesting cubes" from "finding the
+// facets".
+//
+// So, the plan is:
+//  -- seed Interesting with cubes having broken bases
+//  -- take an Interesting but Unhandled cube:
+//  	-- check for broken faces
+// 		-- add any Interesting neighbours to Interesting
+//  -- continue until every Interesting cube is Handled.
+//
+//  Looking at the .obj file format, this is great -- we can number the
+// vertices and then figure out where they are.
