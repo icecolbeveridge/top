@@ -1,5 +1,7 @@
 package contour
 
+import "top/top"
+
 // This is a thinking-it-through piece.
 //
 // To develop a 3D contour surface, I think the plan would be:
@@ -63,3 +65,19 @@ package contour
 //
 //  Looking at the .obj file format, this is great -- we can number the
 // vertices and then figure out where they are.
+
+type Fielder func(x, y, z float64) float64
+
+type facet [3]int
+
+type Shell struct {
+	Points []top.Point
+	Facets []facet
+}
+
+// TODO: options
+func Contour3d(Fielder) []Shell {
+	out := make([]Shell, 0)
+	// TODO: write the code
+	return out
+}
