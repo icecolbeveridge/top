@@ -69,15 +69,36 @@ import "top/top"
 type Fielder func(x, y, z float64) float64
 
 type facet [3]int
-
+type gridpoint [3]int
 type Shell struct {
 	Points []top.Point
 	Facets []facet
 }
 
+type Contour3DOptions struct {
+	xmin, xmax, ymin, ymax, zmin, zmax float64
+	nx, ny, nz                         int
+	fn                                 func(top.Vector) float64
+}
+
+func (c Contour3DOptions) gridToXYZ(gp gridpoint) top.Vector {
+	x := c.xmin + float64(gp[0])*(c.xmax-c.xmin)/float64(c.nx-1)
+	y := c.ymin + float64(gp[1])*(c.ymax-c.ymin)/float64(c.ny-1)
+	z := c.zmin + float64(gp[2])*(c.zmax-c.zmin)/float64(c.nz-1)
+	return top.Vector{x: x, Y: y, Z: z}
+}
+
 // TODO: options
-func Contour3d(Fielder) []Shell {
+func Contour3d(c Contour3DOptions) []Shell {
 	out := make([]Shell, 0)
-	// TODO: write the code
+	grid := make(map[gridpoint]float64)
+	for x := 0; x < c.nx; x++ {
+		for y := 0; y < c.ny; y++ {
+			gp := gridpoint{x, y, 0}
+			v := c.gridToXYZ(gp)
+			grid[gp] = c.fn(v)
+		}
+	}
+
 	return out
 }
