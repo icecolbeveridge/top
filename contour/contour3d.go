@@ -86,7 +86,7 @@ func (c Contour3DOptions) gridToXYZ(gp gridpoint) top.Vector {
 	x := c.xmin + float64(gp[0])*(c.xmax-c.xmin)/float64(c.nx-1)
 	y := c.ymin + float64(gp[1])*(c.ymax-c.ymin)/float64(c.ny-1)
 	z := c.zmin + float64(gp[2])*(c.zmax-c.zmin)/float64(c.nz-1)
-	return top.Vector{x: x, Y: y, Z: z}
+	return top.Vector{X: x, Y: y, Z: z}
 }
 
 // TODO: options
