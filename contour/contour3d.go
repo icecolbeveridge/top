@@ -79,6 +79,7 @@ type Contour3DOptions struct {
 	xmin, xmax, ymin, ymax, zmin, zmax float64
 	nx, ny, nz                         int
 	fn                                 func(top.Vector) float64
+	level                              float64 // probably a slice in the end TODO
 }
 
 func (c Contour3DOptions) gridToXYZ(gp gridpoint) top.Vector {
@@ -92,6 +93,7 @@ func (c Contour3DOptions) gridToXYZ(gp gridpoint) top.Vector {
 func Contour3d(c Contour3DOptions) []Shell {
 	out := make([]Shell, 0)
 	grid := make(map[gridpoint]float64)
+	// start by filling the z=0 grid
 	for x := 0; x < c.nx; x++ {
 		for y := 0; y < c.ny; y++ {
 			gp := gridpoint{x, y, 0}
@@ -99,6 +101,26 @@ func Contour3d(c Contour3DOptions) []Shell {
 			grid[gp] = c.fn(v)
 		}
 	}
+	// any grid cell with a mixture of above/below is interesting
+	interesting := make([]gridpoint, 0) // index cubes by minimal coords
+	// seed interesting with z=0 interesting cubes
+	for x := 0; x < c.nx; x++ {
+		for y := 0; y < c.ny; y++ {
+			cell_total := 0
+			for i := 0; i <= 1; i++ {
+				for j := 0; j <= 1; j++ {
+					gp := gridpoint{x + i, y + j, 0}
+					if grid[gp] > c.level {
+						cell_total += 1
+					}
+				}
+			}
+			if cell_total > 0 && cell_total < 4 {
+				interesting = append(interesting, gridpoint{x, y, 0})
+			}
+		}
+	}
+	// process each interesting cell and add any interesting neighbours TODO
 
 	return out
 }
