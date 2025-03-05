@@ -89,6 +89,11 @@ func (c Contour3DOptions) gridToXYZ(gp gridpoint) top.Vector {
 	return top.Vector{X: x, Y: y, Z: z}
 }
 
+type ccube struct {
+	gp    gridpoint
+	field [2][2][2]float64
+}
+
 // TODO: options
 func Contour3d(c Contour3DOptions) []Shell {
 	out := make([]Shell, 0)
@@ -102,7 +107,10 @@ func Contour3d(c Contour3DOptions) []Shell {
 		}
 	}
 	// any grid cell with a mixture of above/below is interesting
-	interesting := make([]gridpoint, 0) // index cubes by minimal coords
+	to_process := make([]gridpoint, 0) // index cubes by minimal coords
+	interesting := make(map[gridpoint]ccube)
+	uninteresting := make(map[gridpoint]ccube)
+
 	// seed interesting with z=0 interesting cubes
 	for x := 0; x < c.nx; x++ {
 		for y := 0; y < c.ny; y++ {
@@ -116,11 +124,47 @@ func Contour3d(c Contour3DOptions) []Shell {
 				}
 			}
 			if cell_total > 0 && cell_total < 4 {
-				interesting = append(interesting, gridpoint{x, y, 0})
+				to_process = append(to_process, gridpoint{x, y, 0})
 			}
 		}
 	}
 	// process each interesting cell and add any interesting neighbours TODO
+	var current gridpoint
+	for len(to_process) > 0 {
+		l := len(to_process)
+		to_process, current = to_process[:l-1], to_process[l-1]
+		if _, ok := interesting[current]; ok { // ignore if it's in the interesting list
+			continue
+		}
+		if _, ok := uninteresting[current]; ok { // ignore if it's in the boring list
+			continue
+		}
+		first := true
+		ok := true
+		over := false
+		for i := 0; i < 8; i++ {
+			x := current[0] + i%2
+			y := current[1] + (x/2)%2
+			z := current[2] + (x/4)%2
+			gp := gridpoint{x, y, z}
+			field := 0.
 
+			if field, ok = grid[gp]; !ok {
+				field = c.fn(c.gridToXYZ(gp))
+				grid[gp] = field
+			}
+			if first {
+				over = (field > c.level)
+			}
+			if (field > c.level) != over {
+				interesting[current] = ccube{
+					gp:    current,
+					field: [2][2][2]float64{}, // fill later
+				}
+				break
+			}
+		}
+		// TODO : disassemble this
+	}
 	return out
 }
