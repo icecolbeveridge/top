@@ -1,6 +1,8 @@
 package contour
 
-import "top/top"
+import (
+	"top/top"
+)
 
 // This is a thinking-it-through piece.
 //
@@ -89,9 +91,40 @@ func (c Contour3DOptions) gridToXYZ(gp gridpoint) top.Vector {
 	return top.Vector{X: x, Y: y, Z: z}
 }
 
+func (c Contour3DOptions) overLevel(gp gridpoint) bool {
+	return c.gridToXYZ(gp) > c.level
+}
+
 type ccube struct {
 	gp    gridpoint
 	field [2][2][2]float64
+}
+
+type AXIS int
+
+const (
+	X = AXIS(0)
+	Y = AXIS(1)
+	Z = AXIS(2)
+)
+
+func isFaceInteresting(c Contour3DOptions, gp gridpoint, normal AXIS) bool {
+	basis := c.overLevel(gp)
+	toCheck := make([]gridpoint, 0)
+	for i := 0; i < 3; i++ {
+		if i == int(normal) {
+			continue
+		}
+		diff := make([]int, 3)
+		diff[i] = 1
+		toCheck = append(toCheck, gridpoint{gp[0] + diff[0], gp[1] + diff[1], gp[2] + diff[2]})
+	}
+	for _, g := range toCheck {
+		if c.overLevel(g) != basis {
+			return false
+		}
+	}
+	return true
 }
 
 // TODO: options
