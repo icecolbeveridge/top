@@ -92,7 +92,7 @@ func (c Contour3DOptions) gridToXYZ(gp gridpoint) top.Vector {
 }
 
 func (c Contour3DOptions) overLevel(gp gridpoint) bool {
-	return c.gridToXYZ(gp) > c.level
+	return c.fn(c.gridToXYZ(gp)) > c.level
 }
 
 type ccube struct {
